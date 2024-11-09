@@ -1,66 +1,104 @@
-from fastapi import FastAPI, File, UploadFile
-from tensorflow.keras.models import load_model
-import numpy as np
-from PIL import Image
-import io
-from tensorflow.keras.applications.resnet_v2 import preprocess_input
-import os
-import uvicorn
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Classification</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background-color: #f4f4f9;
+            margin: 0;
+        }
+        h1 {
+            color: #333;
+        }
+        input[type="file"] {
+            margin: 20px 0;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #result {
+            margin-top: 20px;
+            font-size: 18px;
+            text-align: center;
+        }
+        #uploadedImage {
+            margin-top: 20px;
+            max-width: 400px;
+            height: auto;
+            display: none;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
 
-app = FastAPI()
+<h1>Weather Image Classification</h1>
+<p>Upload an image to classify weather.</p>
+<input type="file" id="fileInput" accept="image/*" onchange="previewImage(event)">
+<br>
+<img id="uploadedImage" src="" alt="Uploaded Image Preview" />
+<br>
+<button onclick="uploadImage()">Classify Image</button>
 
-# Load your model and specify class labels
-model_path = r"WeatherModel.keras"  # Update with your actual path
-model = load_model(model_path)
-class_labels = [
-    "dew", "fogsmog", "frost", "glaze", "hail",
-    "lightning", "rain", "rainbow", "rime",
-    "sandstorm", "snow"
-]
+<div id="result"></div>
 
-# Set up CORS to allow requests from any origin
-from fastapi.middleware.cors import CORSMiddleware
+<script>
+    function previewImage(event) {
+        const reader = new FileReader();
+        const imageField = document.getElementById('uploadedImage');
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Change this in production to specific domains
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-@app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    # Read image and preprocess
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents)).convert('RGB')
-    image = image.resize((256, 256))  # Ensure target size matches model input
-    image_array = np.expand_dims(np.array(image), axis=0)
-    image_array = preprocess_input(image_array)
-
-    # Make prediction
-    predictions = model.predict(image_array)[0]
-    top_indices = np.argsort(predictions)[-3:][::-1]
-
-    # Structure response with top 3 predictions
-    result = {
-        "predicted_class": class_labels[top_indices[0]],
-        "confidence": float(predictions[top_indices[0]] * 100),
-        "top_predictions": [
-            {
-                "class": class_labels[idx],
-                "probability": float(predictions[idx]),
-                "percentage": float(predictions[idx] * 100)
+        reader.onload = function() {
+            if (reader.readyState === 2) {
+                imageField.src = reader.result;
+                imageField.style.display = 'block';  
             }
-            for idx in top_indices
-        ]
+        }
+        reader.readAsDataURL(event.target.files[0]);
     }
-    return result
 
-@app.get("/")
-async def root():
-    return {"message": "Weather Image Prediction API"}
+    async function uploadImage() {
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('Please select an image to upload.');
+            return;
+        }
 
-# Run the server using uvicorn
-if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('http://127.0.0.1:8000/predict', {
+            method: 'POST',
+            body: formData
+        });
+
+        if (response.ok) {
+            const result = await response.json();
+            document.getElementById('result').innerHTML = `
+                <p>Predicted Class: <strong>${result.predicted_class}</strong></p>
+                <p>Prediction Confidence: ${result.prediction}</p>
+            `;
+        } else {
+            document.getElementById('result').innerText = 'Error in classification. Please try again.';
+        }
+    }
+</script>
+
+</body>
+</html>
