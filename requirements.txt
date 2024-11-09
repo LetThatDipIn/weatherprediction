@@ -7,3 +7,4 @@ scikit-learn==1.5.1
 matplotlib==3.9.1.post1
 typing-extensions==4.12.2
 python-multipart==0.0.9
+gdown==5.2.0
