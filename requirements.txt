@@ -9,5 +9,3 @@ matplotlib==3.9.1.post1
 typing-extensions==4.12.2
 python-multipart==0.0.9
 gdown==5.2.0
-nvidia-pyindex==1.0.9
-nvidia-tensorrt==8.5.2.2
