@@ -10,7 +10,7 @@ import uvicorn
 app = FastAPI()
 
 # Load your model and specify class labels
-model_path = r"/mnt/Storage/WeatherPredictionDeploy/WeatherModel.keras"  # Update with your actual path
+model_path = r"WeatherModel.keras"  # Update with your actual path
 model = load_model(model_path)
 class_labels = [
     "dew", "fogsmog", "frost", "glaze", "hail",
