@@ -1,104 +1,92 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather Classification</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background-color: #f4f4f9;
-            margin: 0;
-        }
-        h1 {
-            color: #333;
-        }
-        input[type="file"] {
-            margin: 20px 0;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        #result {
-            margin-top: 20px;
-            font-size: 18px;
-            text-align: center;
-        }
-        #uploadedImage {
-            margin-top: 20px;
-            max-width: 400px;
-            height: auto;
-            display: none;
-            border: 2px solid #ddd;
-            border-radius: 10px;
-        }
-    </style>
-</head>
-<body>
+from fastapi import FastAPI, File, UploadFile
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from tensorflow.keras.models import load_model
+import numpy as np
+from PIL import Image
+import io
+from tensorflow.keras.applications.resnet_v2 import preprocess_input
+import os
+import uvicorn
+import gdown
 
-<h1>Weather Image Classification</h1>
-<p>Upload an image to classify weather.</p>
-<input type="file" id="fileInput" accept="image/*" onchange="previewImage(event)">
-<br>
-<img id="uploadedImage" src="" alt="Uploaded Image Preview" />
-<br>
-<button onclick="uploadImage()">Classify Image</button>
+app = FastAPI()
 
-<div id="result"></div>
+# Set paths and Google Drive file ID
+MODEL_PATH = r"./WeatherModel.keras"  # Local path where the model will be stored
+GOOGLE_DRIVE_FILE_ID = "1bZjPgcYfrBVUXuYu9lTSwzL1byiILuJH"
 
-<script>
-    function previewImage(event) {
-        const reader = new FileReader();
-        const imageField = document.getElementById('uploadedImage');
+# Define class labels
+class_labels = [
+    "dew", "fogsmog", "frost", "glaze", "hail",
+    "lightning", "rain", "rainbow", "rime",
+    "sandstorm", "snow"
+]
 
-        reader.onload = function() {
-            if (reader.readyState === 2) {
-                imageField.src = reader.result;
-                imageField.style.display = 'block';  
+# Function to download model from Google Drive if not already present
+def download_model():
+    if not os.path.exists(MODEL_PATH):
+        os.makedirs(os.path.dirname(MODEL_PATH), exist_ok=True)
+        url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
+        gdown.download(url, MODEL_PATH, quiet=False)
+    else:
+        print("Model already downloaded.")
+
+# Load model at startup
+@app.on_event("startup")
+async def startup_event():
+    download_model()
+    global model
+    model = load_model(MODEL_PATH)
+
+# Set up CORS to allow requests from any origin
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Change this in production to specific domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Serve static files (like images, stylesheets, etc.)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Serve the index.html as the home page
+@app.get("/", response_class=HTMLResponse)
+async def read_root():
+    with open("static/index.html", "r") as f:
+        return f.read()
+
+@app.post("/predict")
+async def predict(file: UploadFile = File(...)):
+    # Read image and preprocess
+    contents = await file.read()
+    image = Image.open(io.BytesIO(contents)).convert('RGB')
+    image = image.resize((256, 256))  # Ensure target size matches model input
+    image_array = np.expand_dims(np.array(image), axis=0)
+    image_array = preprocess_input(image_array)
+
+    # Make prediction
+    predictions = model.predict(image_array)[0]
+    top_indices = np.argsort(predictions)[-3:][::-1]
+
+    # Structure response with top 3 predictions
+    result = {
+        "predicted_class": class_labels[top_indices[0]],
+        "confidence": float(predictions[top_indices[0]] * 100),
+        "top_predictions": [
+            {
+                "class": class_labels[idx],
+                "probability": float(predictions[idx]),
+                "percentage": float(predictions[idx] * 100)
             }
-        }
-        reader.readAsDataURL(event.target.files[0]);
+            for idx in top_indices
+        ]
     }
+    return result
 
-    async function uploadImage() {
-        const fileInput = document.getElementById('fileInput');
-        const file = fileInput.files[0];
-        if (!file) {
-            alert('Please select an image to upload.');
-            return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await fetch('http://127.0.0.1:8000/predict', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            document.getElementById('result').innerHTML = `
-                <p>Predicted Class: <strong>${result.predicted_class}</strong></p>
-                <p>Prediction Confidence: ${result.prediction}</p>
-            `;
-        } else {
-            document.getElementById('result').innerText = 'Error in classification. Please try again.';
-        }
-    }
-</script>
-
-</body>
-</html>
+# Run the server using uvicorn
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
