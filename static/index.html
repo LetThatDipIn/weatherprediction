@@ -4,101 +4,269 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Classification</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background-color: #f4f4f9;
-            margin: 0;
+            padding: 2rem;
         }
-        h1 {
-            color: #333;
-        }
-        input[type="file"] {
-            margin: 20px 0;
-        }
-        button {
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            cursor: pointer;
-        }
-        button:hover {
-            background-color: #45a049;
-        }
-        #result {
-            margin-top: 20px;
-            font-size: 18px;
+
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
             text-align: center;
         }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            color: #7f8c8d;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+
+        .upload-area {
+            border: 2px dashed #bdc3c7;
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 1rem 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-area:hover {
+            border-color: #3498db;
+            background: #f7f9fc;
+        }
+
+        .upload-icon {
+            font-size: 3rem;
+            color: #3498db;
+            margin-bottom: 1rem;
+        }
+
         #uploadedImage {
-            margin-top: 20px;
-            max-width: 400px;
+            max-width: 100%;
             height: auto;
-            display: none;
-            border: 2px solid #ddd;
             border-radius: 10px;
+            margin: 1rem 0;
+            display: none;
+            animation: fadeIn 0.5s ease;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 1rem;
+        }
+
+        button:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        #result {
+            margin-top: 2rem;
+            padding: 1rem;
+            border-radius: 10px;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .result-card {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            display: none;
+        }
+
+        .result-title {
+            color: #2c3e50;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+
+        .confidence-bar {
+            background: #eee;
+            height: 10px;
+            border-radius: 5px;
+            margin-top: 0.5rem;
+            overflow: hidden;
+        }
+
+        .confidence-fill {
+            height: 100%;
+            background: #2ecc71;
+            width: 0%;
+            transition: width 1s ease;
+        }
+
+        .loading {
+            display: none;
+            margin: 1rem 0;
+        }
+
+        .loading i {
+            color: #3498db;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        #fileInput {
+            display: none;
         }
     </style>
 </head>
 <body>
+    <div class="container">
+        <h1>Weather Classification</h1>
+        <p class="subtitle">Upload an image to analyze the weather conditions</p>
+        
+        <input type="file" id="fileInput" accept="image/*" onchange="previewImage(event)">
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <i class="fas fa-cloud-upload-alt upload-icon"></i>
+            <p>Click or drag an image here</p>
+            <p style="font-size: 0.9rem; color: #7f8c8d;">Supported formats: JPG, PNG</p>
+        </div>
 
-<h1>Weather Image Classification</h1>
-<p>Upload an image to classify weather.</p>
-<input type="file" id="fileInput" accept="image/*" onchange="previewImage(event)">
-<br>
-<img id="uploadedImage" src="" alt="Uploaded Image Preview" />
-<br>
-<button onclick="uploadImage()">Classify Image</button>
+        <img id="uploadedImage" src="" alt="Uploaded Image Preview" />
+        
+        <div class="loading">
+            <i class="fas fa-spinner fa-2x"></i>
+        </div>
 
-<div id="result"></div>
+        <button onclick="uploadImage()" id="classifyBtn" disabled>
+            <i class="fas fa-magic"></i> Classify Weather
+        </button>
 
-<script>
-    function previewImage(event) {
-        const reader = new FileReader();
-        const imageField = document.getElementById('uploadedImage');
+        <div class="result-card" id="resultCard">
+            <div class="result-title">Weather Classification Result</div>
+            <div id="result"></div>
+            <div class="confidence-bar">
+                <div class="confidence-fill" id="confidenceFill"></div>
+            </div>
+        </div>
+    </div>
 
-        reader.onload = function() {
-            if (reader.readyState === 2) {
-                imageField.src = reader.result;
-                imageField.style.display = 'block';  
+    <script>
+        function previewImage(event) {
+            const reader = new FileReader();
+            const imageField = document.getElementById('uploadedImage');
+            const classifyBtn = document.getElementById('classifyBtn');
+            const resultCard = document.getElementById('resultCard');
+
+            reader.onload = function() {
+                if (reader.readyState === 2) {
+                    imageField.src = reader.result;
+                    imageField.style.display = 'block';
+                    classifyBtn.disabled = false;
+                    resultCard.style.display = 'none';
+                }
+            }
+            
+            if (event.target.files[0]) {
+                reader.readAsDataURL(event.target.files[0]);
             }
         }
-        reader.readAsDataURL(event.target.files[0]);
-    }
 
-    async function uploadImage() {
-        const fileInput = document.getElementById('fileInput');
-        const file = fileInput.files[0];
-        if (!file) {
-            alert('Please select an image to upload.');
-            return;
+        async function uploadImage() {
+            const fileInput = document.getElementById('fileInput');
+            const loading = document.querySelector('.loading');
+            const classifyBtn = document.getElementById('classifyBtn');
+            const resultCard = document.getElementById('resultCard');
+            const confidenceFill = document.getElementById('confidenceFill');
+
+            if (!fileInput.files[0]) {
+                alert('Please select an image to upload.');
+                return;
+            }
+
+            // Show loading state
+            loading.style.display = 'block';
+            classifyBtn.disabled = true;
+            resultCard.style.display = 'none';
+
+            try {
+                const formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    
+                    // Calculate confidence percentage
+                    const confidence = (result.prediction * 100).toFixed(1);
+                    
+                    document.getElementById('result').innerHTML = `
+                        <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">
+                            <strong>${result.predicted_class}</strong>
+                        </p>
+                        <p style="color: #666;">
+                            Confidence: ${confidence}%
+                        </p>
+                    `;
+
+                    // Animate confidence bar
+                    confidenceFill.style.width = `${confidence}%`;
+                    resultCard.style.display = 'block';
+                } else {
+                    throw new Error('Classification failed');
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = `
+                    <p style="color: #e74c3c;">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Error in classification. Please try again.
+                    </p>
+                `;
+                resultCard.style.display = 'block';
+            } finally {
+                loading.style.display = 'none';
+                classifyBtn.disabled = false;
+            }
         }
-
-        const formData = new FormData();
-        formData.append('file', file);
-
-        const response = await fetch('http://127.0.0.1:8000/predict', {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok) {
-            const result = await response.json();
-            document.getElementById('result').innerHTML = `
-                <p>Predicted Class: <strong>${result.predicted_class}</strong></p>
-                <p>Prediction Confidence: ${result.prediction}</p>
-            `;
-        } else {
-            document.getElementById('result').innerText = 'Error in classification. Please try again.';
-        }
-    }
-</script>
-
+    </script>
 </body>
 </html>
