@@ -9,3 +9,4 @@ typing-extensions==4.12.2
 python-multipart==0.0.9
 gdown==5.2.0
 requests>=2.25.1
+firebase-admin==6.4.0
