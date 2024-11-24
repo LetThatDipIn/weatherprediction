@@ -4,269 +4,409 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Classification</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        .sidebar {
+            transform: translateX(-100%);
+            transition: transform 0.3s ease-in-out;
         }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            min-height: 100vh;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 2rem;
-        }
-
-        .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 600px;
-            text-align: center;
-        }
-
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 1rem;
-            font-size: 2rem;
-        }
-
-        .subtitle {
-            color: #7f8c8d;
-            margin-bottom: 2rem;
-            font-size: 1.1rem;
+        
+        .sidebar.active {
+            transform: translateX(0);
         }
 
         .upload-area {
-            border: 2px dashed #bdc3c7;
-            border-radius: 15px;
-            padding: 2rem;
-            margin: 1rem 0;
-            cursor: pointer;
+            border: 2px dashed #4299e1;
             transition: all 0.3s ease;
         }
 
         .upload-area:hover {
-            border-color: #3498db;
-            background: #f7f9fc;
+            border-color: #2b6cb0;
+            background: rgba(66, 153, 225, 0.1);
         }
 
-        .upload-icon {
-            font-size: 3rem;
-            color: #3498db;
-            margin-bottom: 1rem;
+        .upload-area.dragging {
+            background: rgba(66, 153, 225, 0.2);
+            border-color: #2b6cb0;
+            transform: scale(1.02);
         }
 
-        #uploadedImage {
-            max-width: 100%;
-            height: auto;
-            border-radius: 10px;
-            margin: 1rem 0;
-            display: none;
-            animation: fadeIn 0.5s ease;
-        }
-
-        button {
-            background: #3498db;
-            color: white;
-            border: none;
-            padding: 1rem 2rem;
-            border-radius: 10px;
-            font-size: 1.1rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 1rem;
-        }
-
-        button:hover {
-            background: #2980b9;
-            transform: translateY(-2px);
-        }
-
-        button:disabled {
-            background: #bdc3c7;
-            cursor: not-allowed;
-        }
-
-        #result {
-            margin-top: 2rem;
-            padding: 1rem;
-            border-radius: 10px;
-            animation: fadeIn 0.5s ease;
+        @keyframes slideIn {
+            from {
+                transform: translateY(20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
         }
 
         .result-card {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 1.5rem;
-            margin-top: 1rem;
-            display: none;
+            animation: slideIn 0.5s ease-out;
         }
 
-        .result-title {
-            color: #2c3e50;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
-        }
-
-        .confidence-bar {
-            background: #eee;
-            height: 10px;
-            border-radius: 5px;
-            margin-top: 0.5rem;
-            overflow: hidden;
-        }
-
-        .confidence-fill {
-            height: 100%;
-            background: #2ecc71;
-            width: 0%;
-            transition: width 1s ease;
-        }
-
-        .loading {
-            display: none;
-            margin: 1rem 0;
-        }
-
-        .loading i {
-            color: #3498db;
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
             animation: spin 1s linear infinite;
         }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-
         @keyframes spin {
+            0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
 
-        #fileInput {
-            display: none;
+        .prediction-item {
+            transition: all 0.3s ease;
+        }
+
+        .prediction-item:hover {
+            transform: translateX(10px);
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Weather Classification</h1>
-        <p class="subtitle">Upload an image to analyze the weather conditions</p>
-        
-        <input type="file" id="fileInput" accept="image/*" onchange="previewImage(event)">
-        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
-            <i class="fas fa-cloud-upload-alt upload-icon"></i>
-            <p>Click or drag an image here</p>
-            <p style="font-size: 0.9rem; color: #7f8c8d;">Supported formats: JPG, PNG</p>
+<body class="bg-gray-100">
+    <!-- Sidebar Toggle Button -->
+    <button id="sidebarToggle" class="fixed top-4 left-4 z-50 p-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+    </button>
+
+    <!-- Sidebar -->
+    <div class="sidebar fixed left-0 top-0 h-full w-64 bg-white shadow-lg z-40 p-4">
+        <h2 class="text-xl font-bold mb-4">Recent Predictions</h2>
+        <div id="recentPredictions" class="space-y-4">
+            <!-- Recent predictions will be populated here -->
         </div>
+    </div>
 
-        <img id="uploadedImage" src="" alt="Uploaded Image Preview" />
-        
-        <div class="loading">
-            <i class="fas fa-spinner fa-2x"></i>
-        </div>
+    <!-- Main Content -->
+    <div class="min-h-screen p-8 ml-0">
+        <div class="max-w-4xl mx-auto">
+            <div class="bg-white rounded-lg shadow-xl p-8 mb-8">
+                <h1 class="text-3xl font-bold text-center mb-8 text-blue-600">Weather Classification</h1>
+                
+                <!-- Upload Area -->
+                <div id="uploadArea" class="upload-area rounded-lg p-8 text-center cursor-pointer">
+                    <div class="space-y-4">
+                        <svg class="mx-auto h-12 w-12 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                        </svg>
+                        <p class="text-lg">Click or drag an image here</p>
+                        <p class="text-sm text-gray-500">Supported formats: JPG, PNG</p>
+                    </div>
+                </div>
+                
+                <!-- Image Preview -->
+                <div id="imagePreview" class="mt-8 hidden">
+                    <img id="uploadedImage" class="max-w-full mx-auto rounded-lg shadow-md" alt="Preview">
+                </div>
 
-        <button onclick="uploadImage()" id="classifyBtn" disabled>
-            <i class="fas fa-magic"></i> Classify Weather
-        </button>
+                <!-- Loading Spinner -->
+                <div id="loadingSpinner" class="hidden mt-8">
+                    <div class="loading-spinner mx-auto"></div>
+                    <p class="text-center mt-4 text-gray-600">Analyzing image...</p>
+                </div>
 
-        <div class="result-card" id="resultCard">
-            <div class="result-title">Weather Classification Result</div>
-            <div id="result"></div>
-            <div class="confidence-bar">
-                <div class="confidence-fill" id="confidenceFill"></div>
+                <!-- Results Container -->
+                <div id="resultContainer" class="mt-8">
+                    <!-- Results will be populated here -->
+                </div>
+
+                <!-- Weather Info Container -->
+                <div id="weatherInfoContainer" class="mt-8">
+                    <!-- Weather info will be populated here -->
+                </div>
             </div>
         </div>
     </div>
 
-    <script>
-        function previewImage(event) {
-            const reader = new FileReader();
-            const imageField = document.getElementById('uploadedImage');
-            const classifyBtn = document.getElementById('classifyBtn');
-            const resultCard = document.getElementById('resultCard');
+    <input type="file" id="fileInput" class="hidden" accept="image/*">
 
-            reader.onload = function() {
-                if (reader.readyState === 2) {
-                    imageField.src = reader.result;
-                    imageField.style.display = 'block';
-                    classifyBtn.disabled = false;
-                    resultCard.style.display = 'none';
+    <script>
+        const weatherInfo = {
+    'dew': {
+        description: 'Dew is water droplets that form on cool surfaces at night when atmospheric vapor condenses.',
+        tips: [
+            'Be cautious of slippery surfaces in the morning',
+            'Protect sensitive plants from heavy dew',
+            'Allow extra time for the morning commute'
+        ]
+    },
+    'fogsmog': {
+        description: 'Fog and smog reduce visibility and can affect air quality.',
+        tips: [
+            'Use fog lights when driving',
+            'Maintain safe following distance',
+            'Wear a mask if air quality is poor',
+            'Avoid outdoor activities if possible'
+        ]
+    },
+    'frost': {
+        description: 'Frost occurs when surface temperatures fall below the freezing point.',
+        tips: [
+            'Protect sensitive plants from frost damage',
+            'Be cautious of icy surfaces',
+            'Allow extra time for defrosting vehicles',
+            'Keep indoor temperatures steady'
+        ]
+    },
+    'glaze': {
+        description: 'Glaze is a coating of ice formed when freezing rain or drizzle hits surfaces.',
+        tips: [
+            'Avoid unnecessary travel',
+            'Walk carefully on glazed surfaces',
+            'Keep emergency supplies ready',
+            'Monitor weather updates'
+        ]
+    },
+    'hail': {
+        description: 'Hail consists of balls of ice that fall during severe thunderstorms.',
+        tips: [
+            'Seek immediate shelter',
+            'Protect vehicles if possible',
+            'Stay away from windows',
+            'Listen for weather warnings'
+        ]
+    },
+    'lightning': {
+        description: 'Lightning is a powerful electrical discharge during storms.',
+        tips: [
+            'Stay indoors during thunderstorms',
+            'Avoid open areas and tall objects',
+            'Unplug electronic devices',
+            'Follow the 30/30 rule for lightning safety'
+        ]
+    },
+    'rain': {
+        description: 'Rain is liquid water droplets that fall from clouds.',
+        tips: [
+            'Carry an umbrella',
+            'Wear waterproof clothing',
+            'Drive carefully on wet roads',
+            'Check for flood warnings'
+        ]
+    },
+    'rainbow': {
+        description: 'Rainbows appear when sunlight is reflected and refracted by water droplets.',
+        tips: [
+            'Look opposite to the sun to spot rainbows',
+            'Best visible after rain showers',
+            'Perfect time for photography',
+            'Often indicates clearing weather'
+        ]
+    },
+    'rime': {
+        description: 'Rime is a white ice that forms when supercooled water droplets freeze on contact with surfaces.',
+        tips: [
+            'Be careful on rime-covered surfaces',
+            'Protect plants from rime damage',
+            'Allow extra time for travel',
+            'Monitor temperature forecasts'
+        ]
+    },
+    'sandstorm': {
+        description: 'Sandstorms occur when strong winds lift and transport sand particles.',
+        tips: [
+            'Stay indoors during sandstorms',
+            'Wear protective gear if outside',
+            'Seal doors and windows',
+            'Use air filters indoors'
+        ]
+    },
+    'snow': {
+        description: 'Snow is precipitation in the form of ice crystals.',
+        tips: [
+            'Dress in warm layers',
+            'Clear snow from walkways',
+            'Drive carefully in snow',
+            'Keep emergency supplies ready'
+        ]
+    }
+};
+
+
+        // Sidebar Toggle
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        
+        sidebarToggle.addEventListener('click', () => {
+            sidebar.classList.toggle('active');
+        });
+
+        // Upload Functionality
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+        const uploadedImage = document.getElementById('uploadedImage');
+        const loadingSpinner = document.getElementById('loadingSpinner');
+        const resultContainer = document.getElementById('resultContainer');
+        const weatherInfoContainer = document.getElementById('weatherInfoContainer');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.classList.add('dragging');
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            uploadArea.addEventListener(eventName, () => {
+                uploadArea.classList.remove('dragging');
+            });
+        });
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        uploadArea.addEventListener('drop', handleDrop);
+        fileInput.addEventListener('change', handleFiles);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            handleFiles({ target: { files } });
+        }
+
+        function handleFiles(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    uploadedImage.src = e.target.result;
+                    imagePreview.classList.remove('hidden');
+                    uploadImage(file);
                 }
-            }
-            
-            if (event.target.files[0]) {
-                reader.readAsDataURL(event.target.files[0]);
+                reader.readAsDataURL(file);
             }
         }
 
-        async function uploadImage() {
-            const fileInput = document.getElementById('fileInput');
-            const loading = document.querySelector('.loading');
-            const classifyBtn = document.getElementById('classifyBtn');
-            const resultCard = document.getElementById('resultCard');
-            const confidenceFill = document.getElementById('confidenceFill');
+        async function uploadImage(file) {
+            loadingSpinner.classList.remove('hidden');
+            resultContainer.innerHTML = '';
+            weatherInfoContainer.innerHTML = '';
 
-            if (!fileInput.files[0]) {
-                alert('Please select an image to upload.');
-                return;
-            }
-
-            // Show loading state
-            loading.style.display = 'block';
-            classifyBtn.disabled = true;
-            resultCard.style.display = 'none';
+            const formData = new FormData();
+            formData.append('file', file);
 
             try {
-                const formData = new FormData();
-                formData.append('file', fileInput.files[0]);
-
                 const response = await fetch('/predict', {
                     method: 'POST',
                     body: formData
                 });
 
-                if (response.ok) {
-                    const result = await response.json();
-                    
-                    // Calculate confidence percentage
-                    const confidence = (result.prediction * 100).toFixed(1);
-                    
-                    document.getElementById('result').innerHTML = `
-                        <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">
-                            <strong>${result.predicted_class}</strong>
-                        </p>
-                        <p style="color: #666;">
-                            Confidence: ${confidence}%
-                        </p>
-                    `;
-
-                    // Animate confidence bar
-                    confidenceFill.style.width = `${confidence}%`;
-                    resultCard.style.display = 'block';
-                } else {
-                    throw new Error('Classification failed');
-                }
+                const data = await response.json();
+                displayResults(data);
+                fetchRecentPredictions();
             } catch (error) {
-                document.getElementById('result').innerHTML = `
-                    <p style="color: #e74c3c;">
-                        <i class="fas fa-exclamation-circle"></i>
-                        Error in classification. Please try again.
-                    </p>
+                console.error('Error:', error);
+                resultContainer.innerHTML = `
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 result-card">
+                        <p>Error analyzing image. Please try again.</p>
+                    </div>
                 `;
-                resultCard.style.display = 'block';
             } finally {
-                loading.style.display = 'none';
-                classifyBtn.disabled = false;
+                loadingSpinner.classList.add('hidden');
             }
         }
+
+        function displayResults(data) {
+            // Display prediction results
+            const resultHtml = `
+                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 result-card">
+                    <h3 class="text-xl font-bold text-blue-700 mb-2">Predicted Weather: ${data.predicted_class}</h3>
+                    <p class="text-gray-700 mb-4">Confidence: ${(data.prediction * 100).toFixed(2)}%</p>
+                    
+                    <h4 class="font-semibold text-gray-700 mb-2">Top Predictions:</h4>
+                    <div class="space-y-2">
+                        ${data.top_predictions.map(pred => `
+                            <div class="flex justify-between items-center">
+                                <span class="text-gray-600">${pred.class}</span>
+                                <div class="w-48 bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 rounded-full h-2" style="width: ${pred.percentage}%"></div>
+                                </div>
+                                <span class="text-gray-600">${pred.percentage.toFixed(1)}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            resultContainer.innerHTML = resultHtml;
+
+            // Display weather info
+            const info = weatherInfo[data.predicted_class.toLowerCase()];
+            if (info) {
+                const weatherInfoHtml = `
+                    <div class="bg-gray-50 border-l-4 border-green-500 p-4 result-card">
+                        <h3 class="text-xl font-bold text-green-700 mb-4">About ${data.predicted_class}</h3>
+                        <p class="text-gray-700 mb-4">${info.description}</p>
+                        
+                        <h4 class="font-semibold text-green-700 mb-2">Safety Tips & Recommendations:</h4>
+                        <ul class="list-disc list-inside space-y-2">
+                            ${info.tips.map(tip => `
+                                <li class="text-gray-600">${tip}</li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+                weatherInfoContainer.innerHTML = weatherInfoHtml;
+            }
+        }
+
+        function formatDate(timestamp) {
+            if (!timestamp) return 'N/A';
+
+            let date;
+            if (timestamp._seconds) {
+                date = new Date(timestamp._seconds * 1000);
+            } else {
+                date = new Date(timestamp);
+            }
+
+            return new Intl.DateTimeFormat('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }).format(date);
+        }
+
+        async function fetchRecentPredictions() {
+            try {
+                const response = await fetch('/recent-predictions');
+                const data = await response.json();
+                
+                const recentPredictionsHtml = data.predictions.map(pred => `
+                    <div class="prediction-item bg-gray-50 p-4 rounded-lg shadow-sm">
+                        <p class="font-semibold text-gray-700">${pred.predicted_class}</p>
+                        <p class="text-sm text-gray-500">Confidence: ${(pred.confidence * 100).toFixed(2)}%</p>
+                        <p class="text-xs text-gray-400">${formatDate(pred.timestamp)}</p>
+                    </div>
+                `).join('');
+                
+                document.getElementById('recentPredictions').innerHTML = recentPredictionsHtml;
+            } catch (error) {
+                console.error('Error fetching recent predictions:', error);
+            }
+        }
+
+        // Initial fetch of recent predictions
+        fetchRecentPredictions();
     </script>
 </body>
 </html>
