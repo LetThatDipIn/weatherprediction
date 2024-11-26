@@ -39,9 +39,9 @@ app.add_middleware(
 
 # Set paths and Google Drive file ID
 MODEL_PATH = "WeatherModel.keras"
-GOOGLE_DRIVE_FILE_ID = "1bF9nmnGBD08GXKxCdFuQWRubpWrjs-Pf"
+GOOGLE_DRIVE_FILE_ID = "1bF9nmnGBD08GXKxCdFuQWRubpWrjs-P"
 
-DROPBOX_ACCESS_TOKEN="sl.CBe3SM8nqb3FgEf1y7qrQ6u_PX_U-g4KNsG4cJh0Wws4KpPS5yTkUaTI56mLRGzl1X0Bx6riPxhsTJE1mgcfYJBGKy1U_QJbyGHb1H3kkEifevNNQoPj6nR8p-FRbu49B9xZ3U_pGlsi-fX-pzu398g"
+DROPBOX_ACCESS_TOKEN=""
 dropbox_client = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 
 # Define class labels
