@@ -85,6 +85,33 @@
         </div>
     </div>
 
+    <section id="weatherChatbot" class="mt-8 bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-4 text-blue-600">Weather Chatbot</h2>
+        
+        <div id="chatMessages" class="h-64 overflow-y-auto border rounded-lg p-4 mb-4">
+            <!-- Messages will be dynamically added here -->
+        </div>
+        
+        <div class="flex space-x-2">
+            <input 
+                type="text" 
+                id="chatInput" 
+                placeholder="Ask a weather-related question..." 
+                class="flex-grow p-2 border rounded-lg"
+            >
+            <button 
+                id="chatSendBtn" 
+                class="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
+            >
+                Send
+            </button>
+        </div>
+    </section>
+</div>
+
+<div id="weatherInfoContainer" class="mt-8"></div>
+
+<script src="/static/weather-chat.js"></script>
     <!-- Main Content -->
     <div class="min-h-screen p-8 ml-0">
         <div class="max-w-4xl mx-auto">
@@ -117,11 +144,6 @@
                 <div id="resultContainer" class="mt-8">
                     <!-- Results will be populated here -->
                 </div>
-
-                <!-- Weather Info Container -->
-                <div id="weatherInfoContainer" class="mt-8">
-                    <!-- Weather info will be populated here -->
-                </div>
             </div>
         </div>
     </div>
@@ -129,284 +151,185 @@
     <input type="file" id="fileInput" class="hidden" accept="image/*">
 
     <script>
-        const weatherInfo = {
-    'dew': {
-        description: 'Dew is water droplets that form on cool surfaces at night when atmospheric vapor condenses.',
-        tips: [
-            'Be cautious of slippery surfaces in the morning',
-            'Protect sensitive plants from heavy dew',
-            'Allow extra time for the morning commute'
-        ]
-    },
-    'fogsmog': {
-        description: 'Fog and smog reduce visibility and can affect air quality.',
-        tips: [
-            'Use fog lights when driving',
-            'Maintain safe following distance',
-            'Wear a mask if air quality is poor',
-            'Avoid outdoor activities if possible'
-        ]
-    },
-    'frost': {
-        description: 'Frost occurs when surface temperatures fall below the freezing point.',
-        tips: [
-            'Protect sensitive plants from frost damage',
-            'Be cautious of icy surfaces',
-            'Allow extra time for defrosting vehicles',
-            'Keep indoor temperatures steady'
-        ]
-    },
-    'glaze': {
-        description: 'Glaze is a coating of ice formed when freezing rain or drizzle hits surfaces.',
-        tips: [
-            'Avoid unnecessary travel',
-            'Walk carefully on glazed surfaces',
-            'Keep emergency supplies ready',
-            'Monitor weather updates'
-        ]
-    },
-    'hail': {
-        description: 'Hail consists of balls of ice that fall during severe thunderstorms.',
-        tips: [
-            'Seek immediate shelter',
-            'Protect vehicles if possible',
-            'Stay away from windows',
-            'Listen for weather warnings'
-        ]
-    },
-    'lightning': {
-        description: 'Lightning is a powerful electrical discharge during storms.',
-        tips: [
-            'Stay indoors during thunderstorms',
-            'Avoid open areas and tall objects',
-            'Unplug electronic devices',
-            'Follow the 30/30 rule for lightning safety'
-        ]
-    },
-    'rain': {
-        description: 'Rain is liquid water droplets that fall from clouds.',
-        tips: [
-            'Carry an umbrella',
-            'Wear waterproof clothing',
-            'Drive carefully on wet roads',
-            'Check for flood warnings'
-        ]
-    },
-    'rainbow': {
-        description: 'Rainbows appear when sunlight is reflected and refracted by water droplets.',
-        tips: [
-            'Look opposite to the sun to spot rainbows',
-            'Best visible after rain showers',
-            'Perfect time for photography',
-            'Often indicates clearing weather'
-        ]
-    },
-    'rime': {
-        description: 'Rime is a white ice that forms when supercooled water droplets freeze on contact with surfaces.',
-        tips: [
-            'Be careful on rime-covered surfaces',
-            'Protect plants from rime damage',
-            'Allow extra time for travel',
-            'Monitor temperature forecasts'
-        ]
-    },
-    'sandstorm': {
-        description: 'Sandstorms occur when strong winds lift and transport sand particles.',
-        tips: [
-            'Stay indoors during sandstorms',
-            'Wear protective gear if outside',
-            'Seal doors and windows',
-            'Use air filters indoors'
-        ]
-    },
-    'snow': {
-        description: 'Snow is precipitation in the form of ice crystals.',
-        tips: [
-            'Dress in warm layers',
-            'Clear snow from walkways',
-            'Drive carefully in snow',
-            'Keep emergency supplies ready'
-        ]
+       document.addEventListener('DOMContentLoaded', () => {
+    // Sidebar Toggle
+    const sidebar = document.querySelector('.sidebar');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('active');
+    });
+
+    // Upload Area Elements
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const imagePreview = document.getElementById('imagePreview');
+    const uploadedImage = document.getElementById('uploadedImage');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const resultContainer = document.getElementById('resultContainer');
+    const weatherInfoContainer = document.getElementById('weatherInfoContainer');
+
+
+    // Prevent default drag and drop behaviors
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
     }
-};
 
-
-        // Sidebar Toggle
-        const sidebar = document.querySelector('.sidebar');
-        const sidebarToggle = document.getElementById('sidebarToggle');
-        
-        sidebarToggle.addEventListener('click', () => {
-            sidebar.classList.toggle('active');
+    // Drag and drop visual feedback
+    ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => {
+            uploadArea.classList.add('dragging');
         });
+    });
 
-        // Upload Functionality
-        const uploadArea = document.getElementById('uploadArea');
-        const fileInput = document.getElementById('fileInput');
-        const imagePreview = document.getElementById('imagePreview');
-        const uploadedImage = document.getElementById('uploadedImage');
-        const loadingSpinner = document.getElementById('loadingSpinner');
-        const resultContainer = document.getElementById('resultContainer');
-        const weatherInfoContainer = document.getElementById('weatherInfoContainer');
-
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, preventDefaults, false);
+    ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, () => {
+            uploadArea.classList.remove('dragging');
         });
+    });
 
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
+    // Upload area click to trigger file input
+    uploadArea.addEventListener('click', () => {
+        fileInput.click();
+    });
 
-        ['dragenter', 'dragover'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, () => {
-                uploadArea.classList.add('dragging');
-            });
-        });
+    // Event listeners for file upload
+    uploadArea.addEventListener('drop', handleDrop);
+    fileInput.addEventListener('change', handleFiles);
 
-        ['dragleave', 'drop'].forEach(eventName => {
-            uploadArea.addEventListener(eventName, () => {
-                uploadArea.classList.remove('dragging');
-            });
-        });
+    function handleDrop(e) {
+        const dt = e.dataTransfer;
+        const files = dt.files;
+        handleFiles({ target: { files } });
+    }
 
-        uploadArea.addEventListener('click', () => {
-            fileInput.click();
-        });
-
-        uploadArea.addEventListener('drop', handleDrop);
-        fileInput.addEventListener('change', handleFiles);
-
-        function handleDrop(e) {
-            const dt = e.dataTransfer;
-            const files = dt.files;
-            handleFiles({ target: { files } });
-        }
-
-        function handleFiles(e) {
-            const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    uploadedImage.src = e.target.result;
-                    imagePreview.classList.remove('hidden');
-                    uploadImage(file);
-                }
-                reader.readAsDataURL(file);
+    function handleFiles(e) {
+        const file = e.target.files[0];
+        if (file) {
+            // Validate file type
+            if (!['image/jpeg', 'image/png'].includes(file.type)) {
+                alert('Please upload a JPG or PNG image.');
+                return;
             }
-        }
 
-        async function uploadImage(file) {
-            loadingSpinner.classList.remove('hidden');
-            resultContainer.innerHTML = '';
-            weatherInfoContainer.innerHTML = '';
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/predict', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                const data = await response.json();
-                displayResults(data);
-                fetchRecentPredictions();
-            } catch (error) {
-                console.error('Error:', error);
-                resultContainer.innerHTML = `
-                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 result-card">
-                        <p>Error analyzing image. Please try again.</p>
-                    </div>
-                `;
-            } finally {
-                loadingSpinner.classList.add('hidden');
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadedImage.src = e.target.result;
+                imagePreview.classList.remove('hidden');
+                uploadImage(file);
             }
+            reader.readAsDataURL(file);
         }
+    }
 
-        function displayResults(data) {
-            // Display prediction results
-            const resultHtml = `
-                <div class="bg-blue-50 border-l-4 border-blue-500 p-4 result-card">
-                    <h3 class="text-xl font-bold text-blue-700 mb-2">Predicted Weather: ${data.predicted_class}</h3>
-                    <p class="text-gray-700 mb-4">Confidence: ${(data.prediction * 100).toFixed(2)}%</p>
-                    
-                    <h4 class="font-semibold text-gray-700 mb-2">Top Predictions:</h4>
-                    <div class="space-y-2">
-                        ${data.top_predictions.map(pred => `
-                            <div class="flex justify-between items-center">
-                                <span class="text-gray-600">${pred.class}</span>
-                                <div class="w-48 bg-gray-200 rounded-full h-2">
-                                    <div class="bg-blue-600 rounded-full h-2" style="width: ${pred.percentage}%"></div>
-                                </div>
-                                <span class="text-gray-600">${pred.percentage.toFixed(1)}%</span>
-                            </div>
-                        `).join('')}
-                    </div>
+    async function uploadImage(file) {
+        // Reset previous results
+        loadingSpinner.classList.remove('hidden');
+        resultContainer.innerHTML = '';
+        weatherInfoContainer.innerHTML = '';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/predict', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error('Image classification failed');
+            }
+
+            const data = await response.json();
+            
+            // Display results
+            displayResults(data);
+            
+            // Display AI-generated insights
+            displayWeatherInsights(data);
+            
+            // Fetch and update recent predictions
+            fetchRecentPredictions();
+
+        } catch (error) {
+            console.error('Error:', error);
+            resultContainer.innerHTML = `
+                <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 result-card">
+                    <p>Error analyzing image. Please try again.</p>
                 </div>
             `;
-            resultContainer.innerHTML = resultHtml;
-
-            // Display weather info
-            const info = weatherInfo[data.predicted_class.toLowerCase()];
-            if (info) {
-                const weatherInfoHtml = `
-                    <div class="bg-gray-50 border-l-4 border-green-500 p-4 result-card">
-                        <h3 class="text-xl font-bold text-green-700 mb-4">About ${data.predicted_class}</h3>
-                        <p class="text-gray-700 mb-4">${info.description}</p>
-                        
-                        <h4 class="font-semibold text-green-700 mb-2">Safety Tips & Recommendations:</h4>
-                        <ul class="list-disc list-inside space-y-2">
-                            ${info.tips.map(tip => `
-                                <li class="text-gray-600">${tip}</li>
-                            `).join('')}
-                        </ul>
-                    </div>
-                `;
-                weatherInfoContainer.innerHTML = weatherInfoHtml;
-            }
+        } finally {
+            loadingSpinner.classList.add('hidden');
         }
+    }
 
-        function formatDate(timestamp) {
-            if (!timestamp) return 'N/A';
-
-            let date;
-            if (timestamp._seconds) {
-                date = new Date(timestamp._seconds * 1000);
-            } else {
-                date = new Date(timestamp);
-            }
-
-            return new Intl.DateTimeFormat('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            }).format(date);
-        }
-
-        async function fetchRecentPredictions() {
-            try {
-                const response = await fetch('/recent-predictions');
-                const data = await response.json();
+    function displayResults(data) {
+        // Display prediction results
+        const resultHtml = `
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 result-card">
+                <h3 class="text-xl font-bold text-blue-700 mb-2">Predicted Weather: ${data.predicted_class}</h3>
+                <p class="text-gray-700 mb-4">Confidence: ${(data.prediction * 100).toFixed(2)}%</p>
                 
-                const recentPredictionsHtml = data.predictions.map(pred => `
-                    <div class="prediction-item bg-gray-50 p-4 rounded-lg shadow-sm">
-                        <p class="font-semibold text-gray-700">${pred.predicted_class}</p>
-                        <p class="text-sm text-gray-500">Confidence: ${(pred.confidence * 100).toFixed(2)}%</p>
-                        <p class="text-xs text-gray-400">${formatDate(pred.timestamp)}</p>
-                    </div>
-                `).join('');
-                
-                document.getElementById('recentPredictions').innerHTML = recentPredictionsHtml;
-            } catch (error) {
-                console.error('Error fetching recent predictions:', error);
-            }
-        }
+                <h4 class="font-semibold text-gray-700 mb-2">Top Predictions:</h4>
+                <div class="space-y-2">
+                    ${data.top_predictions.map(pred => `
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-600">${pred.class}</span>
+                            <div class="w-48 bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: ${(pred.percentage).toFixed(2)}%"></div>
+                            </div>
+                            <span class="text-gray-600">${(pred.percentage).toFixed(2)}%</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        resultContainer.innerHTML = resultHtml;
+    }
 
-        // Initial fetch of recent predictions
-        fetchRecentPredictions();
+    function displayWeatherInsights(data) {
+        // Display AI-generated insights and safety recommendations
+        weatherInfoContainer.innerHTML = `
+            <div class="grid md:grid-cols-2 gap-4">
+                <div class="bg-green-50 p-4 rounded-lg">
+                    <h3 class="font-bold text-green-700 mb-2">Scientific Insights</h3>
+                    <p>${data.insights?.scientific_details || 'No additional insights available.'}</p>
+                </div>
+                <div class="bg-yellow-50 p-4 rounded-lg">
+                    <h3 class="font-bold text-yellow-700 mb-2">Safety Recommendations</h3>
+                    <p>${data.safety_recommendations?.safety_recommendations || 'No safety recommendations available.'}</p>
+                </div>
+            </div>
+        `;
+    }
+
+    async function fetchRecentPredictions() {
+        try {
+            const response = await fetch('/recent-predictions');
+            const data = await response.json();
+
+            const recentHtml = data.predictions.map(pred => `
+                <div class="p-4 bg-gray-50 border rounded-md prediction-item">
+                    <p class="font-semibold">${pred.predicted_class}</p>
+                    <p class="text-sm text-gray-500">Confidence: ${(pred.prediction * 100).toFixed(2)}%</p>
+                </div>
+            `).join('');
+
+            document.getElementById('recentPredictions').innerHTML = recentHtml;
+        } catch (error) {
+            console.error('Error fetching recent predictions:', error);
+        }
+    }
+
+    // Initial fetch of recent predictions
+    fetchRecentPredictions();
+});
     </script>
 </body>
 </html>
