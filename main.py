@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException , Form
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -6,22 +6,24 @@ from tensorflow.keras.models import load_model
 import numpy as np
 from PIL import Image
 import io
-from dotenv import load_dotenv
 from tensorflow.keras.applications.resnet_v2 import preprocess_input
 import os
 import uvicorn
 import logging
+import requests
 import gdown
 from firebase_config import FirebaseManager
 import dropbox
 from dropbox.exceptions import ApiError
+from chatbot import WeatherChatbot
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+weather_chatbot = WeatherChatbot()
+
 app = FastAPI()
-load_dotenv()
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -37,9 +39,9 @@ app.add_middleware(
 
 # Set paths and Google Drive file ID
 MODEL_PATH = "WeatherModel.keras"
-GOOGLE_DRIVE_FILE_ID = "1bZjPgcYfrBVUXuYu9lTSwzL1byiILuJH"
+GOOGLE_DRIVE_FILE_ID = "1bF9nmnGBD08GXKxCdFuQWRubpWrjs-Pf"
 
-DROPBOX_ACCESS_TOKEN = os.getenv("DROPBOX_ACCESS_TOKEN")
+DROPBOX_ACCESS_TOKEN="sl.CBe3SM8nqb3FgEf1y7qrQ6u_PX_U-g4KNsG4cJh0Wws4KpPS5yTkUaTI56mLRGzl1X0Bx6riPxhsTJE1mgcfYJBGKy1U_QJbyGHb1H3kkEifevNNQoPj6nR8p-FRbu49B9xZ3U_pGlsi-fX-pzu398g"
 dropbox_client = dropbox.Dropbox(DROPBOX_ACCESS_TOKEN)
 
 # Define class labels
@@ -55,23 +57,24 @@ model = None
 firebase_manager = None
 
 def download_from_drive():
-    """Download the model file from Google Drive if it doesn't exist"""
     try:
-        if not os.path.exists(MODEL_PATH):
-            logger.info("Downloading model from Google Drive...")
-            gdown.download(f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}", MODEL_PATH, quiet=False)
-            logger.info("Model downloaded successfully")
-            return True
+        logger.info("Attempting to download model...")
+        
+        url = f"https://drive.google.com/uc?id={GOOGLE_DRIVE_FILE_ID}"
+        
+        output = gdown.download(url, MODEL_PATH, quiet=False)
+        
+        if output is None:
+            logger.error("Download failed")
+            return False
+            
+        logger.info("Model downloaded successfully")
         return True
     except Exception as e:
         logger.error(f"Error downloading model: {str(e)}")
         return False
 
-
 def upload_to_dropbox(file_data, file_name, unique_key):
-    """
-    Uploads a file to Dropbox and associates it with the unique key.
-    """
     try:
         # Define the Dropbox path (e.g., "/uploads/unique_key_filename.ext")
         dropbox_path = f"/uploads/{unique_key}_{file_name}"
@@ -121,7 +124,10 @@ async def startup_event():
 
 @app.post("/predict")
 async def predict(file: UploadFile = File(...)):
-    global model, firebase_manager
+    logger.info(f"Received file: {file.filename}")  # Log filename
+    logger.info(f"Content type: {file.content_type}") 
+
+    global model, firebase_manager, weather_chatbot
     try:
         if model is None:
             raise HTTPException(status_code=500, detail="Model not loaded")
@@ -137,8 +143,19 @@ async def predict(file: UploadFile = File(...)):
         # Get predictions
         predictions = model.predict(image_array)[0]
         top_indices = np.argsort(predictions)[-3:][::-1]
+        predicted_class = class_labels[top_indices[0]]
+        
+        # Generate AI insights and safety recommendations
+        try:
+            insights = weather_chatbot.get_image_classification_insights(predicted_class)
+            safety_info = weather_chatbot.get_safety_recommendations(predicted_class)
+        except Exception as e:
+            logger.warning(f"Chatbot insights generation failed: {e}")
+            insights = {"scientific_details": "Insights unavailable", "type": predicted_class}
+            safety_info = {"safety_recommendations": "Recommendations unavailable", "type": predicted_class}
+        
         result = {
-            "predicted_class": class_labels[top_indices[0]],
+            "predicted_class": predicted_class,
             "prediction": float(predictions[top_indices[0]]),
             "top_predictions": [
                 {
@@ -147,7 +164,9 @@ async def predict(file: UploadFile = File(...)):
                     "percentage": float(predictions[idx] * 100)
                 }
                 for idx in top_indices
-            ]
+            ],
+            "insights": insights,
+            "safety_recommendations": safety_info
         }
 
         # Save to Firebase and Dropbox
@@ -191,6 +210,17 @@ async def get_recent_predictions():
     except Exception as e:
         logger.error(f"Error retrieving predictions: {str(e)}")
         return {"predictions": []}  # Return empty list on error
+    
+@app.post("/weather-chat")
+async def weather_chat(query: str = Form(...)):
+    """General weather-related chat endpoint"""
+    try:
+        response = weather_chatbot.general_weather_query(query)
+        return {"response": response}
+    except Exception as e:
+        logger.error(f"Weather chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error processing chat request")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root():
