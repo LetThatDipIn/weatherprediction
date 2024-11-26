@@ -11,7 +11,7 @@ class WeatherChatbot:
     def __init__(self):
         try:
             # Configure the API key from environment variable
-            genai.configure(api_key='AIzaSyBfohjGxOHMmzEq_VZY6P3q-yCSQjSsvDs')
+            genai.configure(api_key='')
             
             # System prompts for different contexts
             self.safety_system_prompt = """
